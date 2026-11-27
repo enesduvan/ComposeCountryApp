@@ -1,9 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.4.21"
 }
-
 android {
     namespace = "com.enesduvan.composecountryapp"
     compileSdk {
@@ -48,6 +46,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.navigation3.ui)
+    implementation(libs.androidx.room3.common)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
@@ -58,4 +57,8 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.retrofit) // or 2.9.0+
+    implementation(libs.converter.gson)
+    implementation(libs.logging.interceptor)
+    implementation(libs.androidx.compose.runtime.livedata)
 }

@@ -1,13 +1,17 @@
 package com.enesduvan.composecountryapp.screens
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -17,8 +21,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
@@ -26,7 +32,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,15 +47,23 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import com.enesduvan.composecountryapp.R
 import com.enesduvan.composecountryapp.model.CountryListViewModel
+import kotlin.collections.emptyList
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CountryList(navController: NavController,viewModel: CountryListViewModel) {
-    viewModel.refeshData()
+    val countryList by viewModel.country.observeAsState(initial = emptyList())
+    val isError by viewModel.countryError.observeAsState(initial = false)
+    val isLoading by viewModel.countryLoading.observeAsState(initial = false)
+
+    LaunchedEffect(Unit) {
+        viewModel.refeshData()
+    }
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -58,24 +76,65 @@ fun CountryList(navController: NavController,viewModel: CountryListViewModel) {
                 }
             )
         }
-    ) { innerPadding ->
-        LazyColumn(
+    ) {innerPadding ->
+        PullToRefreshBox(
+            isRefreshing = isLoading,
+            onRefresh = { viewModel.refeshData() },
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp) // Kartlar arası eşit boşluk
+                .padding(innerPadding)
         ) {
-            items(viewModel.country.value ?: emptyList()) { country ->
-                CountryCard(
-                    navController = navController,
-                    countryName = country.name.toString(),
-                    ImageUrl = country.flagUrl.toString()
-                )
+            when {
+                // 2. Yükleniyor durumu
+                isLoading -> {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center, modifier = Modifier.fillMaxSize()
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+
+                // 3. Hata durumu (LazyColumn dışına alındı)
+                isError -> {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = "Hata: Ülkeler yüklenemedi.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(onClick = { viewModel.refeshData() }) {
+                            Text(text = "Tekrar Dene")
+                        }
+                    }
+                }
+
+                // 4. Başarılı veri listeleme durumu
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(countryList) { country ->
+                            CountryCard(
+                                navController = navController,
+                                countryName = country.name ?: "İsimsiz",
+                                ImageUrl = country.flagUrl ?: ""
+                            )
+                        }
+                    }
+                }
+            }
             }
         }
     }
-}
 
 @Composable
 fun CountryCard(
@@ -84,7 +143,8 @@ fun CountryCard(
     ImageUrl: String
 ) {
     val navigateToDetails = {
-        navController.navigate("CountryDetails/$countryName")
+        val encodedName = android.net.Uri.encode(countryName)
+        navController.navigate("CountryDetails/$encodedName")
     }
 
     ElevatedCard(
@@ -104,7 +164,7 @@ fun CountryCard(
             // 1. Sabit Boyutlu, Köşeleri Yuvarlatılmış Ülke Görseli
             AsyncImage(
                 model = ImageUrl,
-                contentDescription = "$countryName Fotoğrafı",
+                contentDescription = "$countryName Fotoğrafı",//*
                 placeholder = rememberVectorPainter(image = Icons.Default.Refresh), // Yüklenirken gösterilir
                 error = painterResource(id = R.drawable.ic_launcher_background),
                 contentScale = ContentScale.Crop,

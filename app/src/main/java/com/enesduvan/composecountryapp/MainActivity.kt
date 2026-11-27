@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
                         navArgument("CountryName") { type = NavType.StringType }
                     )) {
                         val CountryName = remember {  it.arguments?.getString("CountryName") ?: "" }
-                        CountryDetails(navController, CountryName)
+                        CountryDetails(navController, viewModel(), CountryName)
                     }
                 }
             }
